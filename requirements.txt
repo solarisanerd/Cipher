@@ -1,4 +1,0 @@
-aiortc
-websockets
-aiohttp
-colorist
