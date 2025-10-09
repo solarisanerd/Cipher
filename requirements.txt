@@ -1,1 +1,4 @@
+aiortc
+websockets
+aiohttp
 colorist
