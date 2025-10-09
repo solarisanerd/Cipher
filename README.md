@@ -1,12 +1,12 @@
 # CIPHER
 
-yeah so i made a chat thing cause why not. its called cipher and it lets you chat with people over the internet or whatever
+yeah so i made a chat thing cause why not. its called cipher and it lets you chat with people over the internet
 
 ## what is this
 
 encrypted chat server/client thing i threw together. you can host a server and your friends can connect to it and chat. pretty simple really
 
-features i guess:
+features:
 - encryption (pbkdf2 + fernet, sounds fancy right?)
 - typing indicators so you know when someones typing
 - commands like /whisper for dms and stuff
