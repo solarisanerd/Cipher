@@ -1,23 +1,23 @@
 # CIPHER
 
-Yeah so I made a chat thing cause why not. It's called CIPHER and it lets you chat with people over the internet or whatever.
+yeah so i made a chat thing cause why not. its called cipher and it lets you chat with people over the internet or whatever
 
-## What is this
+## what is this
 
-Encrypted chat server/client thing I threw together. You can host a server and your friends can connect to it and chat. Pretty simple really.
+encrypted chat server/client thing i threw together. you can host a server and your friends can connect to it and chat. pretty simple really
 
-Features I guess:
-- Encryption (PBKDF2 + Fernet, sounds fancy right?)
-- Typing indicators so you know when someone's typing
-- Commands like /whisper for DMs and stuff
-- Works on Windows and Linux (probably Mac too idk)
-- Tunneling support with bore so you can chat with people outside your network
-- Logs everything to a file cause why not
-- Interactive menus with arrow keys (looks cool)
+features i guess:
+- encryption (pbkdf2 + fernet, sounds fancy right?)
+- typing indicators so you know when someones typing
+- commands like /whisper for dms and stuff
+- works on windows and linux (probably mac too idk)
+- tunneling support with bore so you can chat with people outside your network
+- logs everything to a file cause why not
+- interactive menus with arrow keys (looks cool)
 
-## How it works
+## how it works
 
-Ok so basically it's like this:
+ok so basically its like this:
 
 ```
    YOU (client)                    SERVER                    FRIEND (client)
@@ -25,7 +25,7 @@ Ok so basically it's like this:
         | [1] connect to server       |                             |
         |---------------------------->|                             |
         |                             |                             |
-        | [2] "what's ur name?"       |                             |
+        | [2] "whats ur name?"        |                             |
         |<----------------------------|                             |
         |                             |                             |
         | [3] "im bob"                |                             |
@@ -41,7 +41,7 @@ Ok so basically it's like this:
         |<----------------------------|                             |
 ```
 
-The encryption part:
+the encryption part:
 ```
 your message: "hello"
      |
@@ -61,47 +61,47 @@ your message: "hello"
 [send to other clients] --> they decrypt it
 ```
 
-## Setup
+## setup
 
-1. Install Python
-2. Run the program and it'll auto install the packages (cryptography, colorist), or if you're cool just do `pip install cryptography colorist`
-3. That's it lol
+1. install python
+2. run the program and itll auto install the packages (cryptography, colorist), or if youre cool just do `pip install cryptography colorist`
+3. thats it lol
 
-## How to use
+## how to use
 
-### Hosting a server
+### hosting a server
 
-Just run `python cipher.py` and pick "Host cipher server"
+just run `python cipher.py` and pick "Host cipher server"
 
-You got 2 options:
-- **Local hosting** - only works on same wifi/network
-- **Host with bore** - uses bore tunnel so anyone on the internet can connect
-  - You need bore for this: https://github.com/ekzhang/bore/releases
-  - Just drop bore.exe in the same folder as cipher.py
+you got 2 options:
+- **local hosting** - only works on same wifi/network
+- **host with bore** - uses bore tunnel so anyone on the internet can connect
+  - you need bore for this: https://github.com/ekzhang/bore/releases
+  - just drop bore.exe in the same folder as cipher.py
 
-When you host with bore it'll give you a url like `bore.pub:12345` - send that to your friends
+when you host with bore itll give you a url like `bore.pub:12345` - send that to your friends
 
-### Connecting to a server
+### connecting to a server
 
-1. Pick "Connect to server"
-2. Enter the IP/URL
-   - If local: use the host's local IP
-   - If bore: use the bore.pub url they gave you
-3. Enter the port (default is 8052)
-4. Pick a username
-5. Start chatting
+1. pick "Connect to server"
+2. enter the ip/url
+   - if local: use the hosts local ip
+   - if bore: use the bore.pub url they gave you
+3. enter the port (default is 8052)
+4. pick a username
+5. start chatting
 
-### Commands
+### commands
 
 ```
-/quit          - disconnect (use this don't just close the window)
-/users         - see who's online
-/whisper       - DM someone (/whisper username message)
+/quit          - disconnect (use this dont just close the window)
+/users         - see whos online
+/whisper       - dm someone (/whisper username message)
 /clear         - clear your screen
 /help          - shows commands
 ```
 
-## Network diagram
+## network diagram
 
 ```
                       INTERNET
@@ -128,20 +128,20 @@ with bore tunnel:
   (internet)       (tunnel)      (your computer)     (your network)
 ```
 
-## Settings
+## settings
 
-In the settings menu you can change:
-- Port (default 8052)
-- Max clients (default 10)
-- Encryption on/off (keep it on)
-- Tor service info (doesn't do anything yet lol)
-- Tunneling info display
+in the settings menu you can change:
+- port (default 8052)
+- max clients (default 10)
+- encryption on/off (keep it on)
+- tor service info (doesnt do anything yet lol)
+- tunneling info display
 
-## The encryption stuff
+## the encryption stuff
 
-Uses PBKDF2-HMAC-SHA256 with 100k iterations to derive a key from a password, then Fernet for actual encryption.
+uses pbkdf2-hmac-sha256 with 100k iterations to derive a key from a password, then fernet for actual encryption
 
-Yeah I know the password is hardcoded to "change_this" but whatever, change it if you want. Same salt too. This isn't Fort Knox it's just a chat app.
+yeah i know the password is hardcoded to "change_this" but whatever, change it if you want. same salt too. this isnt fort knox its just a chat app
 
 ```
 password: "change_this"
@@ -156,7 +156,7 @@ password: "change_this"
 [fernet cipher] --> encrypt/decrypt messages
 ```
 
-## File structure
+## file structure
 
 ```
 cipher.py              # the main program (this does everything)
@@ -164,49 +164,49 @@ chat_history_log       # logs all messages (created automatically)
 bore.exe               # optional - for tunneling
 ```
 
-## Troubleshooting
+## troubleshooting
 
-**Can't connect to server**
-- Make sure server is running
-- Check firewall isn't blocking the port
-- If using bore make sure the url is right
+**cant connect to server**
+- make sure server is running
+- check firewall isnt blocking the port
+- if using bore make sure the url is right
 
-**Encryption errors**
-- Make sure both client and server have same encryption settings
-- If you changed the password/salt, change it on both sides
+**encryption errors**
+- make sure both client and server have same encryption settings
+- if you changed the password/salt, change it on both sides
 
-**Typing indicators weird**
-- Yeah sometimes they glitch idk why
-- Still works for chatting tho
+**typing indicators weird**
+- yeah sometimes they glitch idk why
+- still works for chatting tho
 
-**Bore not working**
-- Did you download it?
-- Is it in the same folder?
-- Maybe try running it manually first: `bore local 8052 --to bore.pub`
+**bore not working**
+- did you download it?
+- is it in the same folder?
+- maybe try running it manually first: `bore local 8052 --to bore.pub`
 
-## Stuff I might add later
+## stuff i might add later
 
-- [ ] File sending
-- [ ] Actual tor support (not just a toggle that does nothing)
-- [ ] More tunnel options (cloudflare, ngrok, etc)
-- [ ] Custom colors
-- [ ] Message history when you join
-- [ ] Better error handling probably
+- [ ] file sending
+- [ ] actual tor support (not just a toggle that does nothing)
+- [ ] more tunnel options (cloudflare, ngrok, etc)
+- [ ] custom colors
+- [ ] message history when you join
+- [ ] better error handling probably
 
-## Notes
+## notes
 
-- Don't use this for anything serious lmao it's just a fun project
-- The code is messy I know, don't judge me
-- Logs are stored in plain text so don't say anything sus
-- If you find bugs cool let me know or whatever
-- The ascii art is sick tho right?
+- dont use this for anything serious lmao its just a fun project
+- the code is messy i know, dont judge me
+- logs are stored in plain text so dont say anything sus
+- if you find bugs cool let me know or whatever
+- the ascii art is sick tho right?
 
-## License
+## license
 
-Idk do whatever you want with it, just don't sell it or claim you made it
+idk do whatever you want with it, just dont sell it or claim you made it
 
 ---
 
-Made by me cause I was bored. If you use this say hi or something
+made by me cause i was bored. if you use this say hi or something
 
-Also if you're reading this far into the readme you're probably cool
+also if youre reading this far into the readme youre probably cool
