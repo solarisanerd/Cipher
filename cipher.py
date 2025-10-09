@@ -7,7 +7,7 @@ import socket
 import threading
 import datetime
 import json
-import base64
+import subprocess
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -456,6 +456,132 @@ def interactive_menu(options, title='CIPHER'):
         elif key == 'esc':
             return -1
 
+def start_tunnel(tunnel_type, port):
+    """Start tunneling service based on selection"""
+    try:
+        if tunnel_type == 'localtunnel':
+            print(f'\n{aqua}[*] Starting LocalTunnel on port {port}...{aqua.OFF}')
+            print(f'{aqua}[*] Make sure you have LocalTunnel installed: npm install -g localtunnel{aqua.OFF}\n')
+            process = subprocess.Popen(['lt', '--port', str(port)], 
+                                     stdout=subprocess.PIPE, 
+                                     stderr=subprocess.PIPE,
+                                     text=True)
+            time.sleep(2)
+            print(f'{aqua}[*] LocalTunnel started! Check above for your URL{aqua.OFF}')
+            print(f'{aqua}[*] Share the URL with your friends (without https://){aqua.OFF}\n')
+            return process
+            
+        elif tunnel_type == 'serveo':
+            print(f'\n{aqua}[*] Starting Serveo tunnel on port {port}...{aqua.OFF}')
+            print(f'{aqua}[*] No installation needed!{aqua.OFF}\n')
+            process = subprocess.Popen(['ssh', '-R', f'80:localhost:{port}', 'serveo.net'],
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
+                                     text=True)
+            time.sleep(2)
+            print(f'{aqua}[*] Serveo tunnel started! Check above for your URL{aqua.OFF}\n')
+            return process
+            
+        elif tunnel_type == 'cloudflare':
+            print(f'\n{aqua}[*] Starting Cloudflare Tunnel on port {port}...{aqua.OFF}')
+            print(f'{aqua}[*] Make sure cloudflared is installed{aqua.OFF}\n')
+            process = subprocess.Popen(['cloudflared', 'tunnel', '--url', f'tcp://localhost:{port}'],
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
+                                     text=True)
+            time.sleep(2)
+            print(f'{aqua}[*] Cloudflare Tunnel started! Check above for your URL{aqua.OFF}\n')
+            return process
+            
+        elif tunnel_type == 'pinggy':
+            print(f'\n{aqua}[*] Starting Pinggy tunnel on port {port}...{aqua.OFF}')
+            print(f'{aqua}[*] No installation needed!{aqua.OFF}\n')
+            process = subprocess.Popen(['ssh', '-p', '443', '-R', f'0:localhost:{port}', 'a.pinggy.io'],
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
+                                     text=True)
+            time.sleep(2)
+            print(f'{aqua}[*] Pinggy tunnel started! Check above for your URL{aqua.OFF}\n')
+            return process
+            
+        elif tunnel_type == 'ngrok':
+            print(f'\n{aqua}[*] Starting Ngrok on port {port}...{aqua.OFF}')
+            print(f'{aqua}[*] Make sure ngrok is installed and authenticated{aqua.OFF}\n')
+            process = subprocess.Popen(['ngrok', 'tcp', str(port)],
+                                     stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
+                                     text=True)
+            time.sleep(2)
+            print(f'{aqua}[*] Ngrok started! Check ngrok dashboard for your URL{aqua.OFF}\n')
+            return process
+            
+    except FileNotFoundError:
+        print(f'{red}[-] Error: {tunnel_type} command not found. Please install it first.{red.OFF}')
+        return None
+    except Exception as e:
+        print(f'{red}[-] Error starting tunnel: {e}{red.OFF}')
+        return None
+
+
+def host_menu():
+    """Menu for hosting options with tunneling"""
+    while True:
+        options = [
+            'Host Locally (No Tunnel)',
+            'Host with LocalTunnel',
+            'Host with Serveo',
+            'Host with Cloudflare Tunnel',
+            'Back to Main Menu'
+        ]
+        
+        choice = interactive_menu(options, 'HOST SERVER')
+        
+        if choice == -1 or choice == 4:
+            break
+            
+        elif choice == 0:
+            # Local hosting only
+            s = server()
+            s.start()
+            input('\nPress enter to return to menu')
+            
+        else:
+            # Hosting with tunnel
+            tunnel_types = ['', 'localtunnel', 'serveo', 'cloudflare']
+            tunnel_type = tunnel_types[choice]
+            
+            os.system('cls' if os.name == 'nt' else 'clear')
+            logo()
+            print(f'\n{aqua}Starting server with {tunnel_type.title()}...{aqua.OFF}\n')
+            
+            # Start tunnel in background
+            tunnel_process = start_tunnel(tunnel_type, config['port'])
+            
+            if tunnel_process:
+                print(f'{aqua}[*] Tunnel is running in the background{aqua.OFF}')
+                print(f'{aqua}[*] Starting Cipher server...{aqua.OFF}\n')
+                
+                # Start server
+                s = server()
+                try:
+                    s.start()
+                except KeyboardInterrupt:
+                    print(f'\n{red}[!] Shutting down...{red.OFF}')
+                finally:
+                    # Kill tunnel process
+                    try:
+                        tunnel_process.terminate()
+                        tunnel_process.wait(timeout=5)
+                    except:
+                        tunnel_process.kill()
+                    print(f'{red}[!] Tunnel stopped{red.OFF}')
+                
+                input('\nPress enter to return to menu')
+            else:
+                print(f'{red}[-] Failed to start tunnel{red.OFF}')
+                input('\nPress enter to return to menu')
+
+
 def settings_menu():
     while True:
         options = [
@@ -509,9 +635,7 @@ def main():
                 sys.exit(0)
 
             elif choice == 0:
-                s = server()
-                s.start()
-                input('\nPress enter to return to menu')
+                host_menu()
 
             elif choice == 1:
                 os.system('cls' if os.name == 'nt' else 'clear')
