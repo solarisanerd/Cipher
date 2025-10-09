@@ -1,4 +1,5 @@
 # DO NOT JUDGE MY CODING
+# auto installer for the lazy people (aka me)
 
 import sys
 import time
@@ -8,15 +9,41 @@ import threading
 import datetime
 import json
 import subprocess
+import base64
+
+
+# auto install missing stuff cause im lazy
+def check_packages():
+    try:
+        from cryptography.fernet import Fernet
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        from pathlib import Path
+        from colorist import ColorHex
+        return True  # all good
+    except ImportError:
+        return False  # missing stuff
+
+if not check_packages():
+    print("\nuh oh, missing some packages...")
+    print("installing them for you (youre welcome)")
+    try:
+        import subprocess
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "cryptography", "colorist"])
+        print("\nall done! restart the program now")
+        sys.exit(0)
+    except Exception as e:
+        print(f"failed to install: {e}")
+        print("just run: pip install cryptography colorist")
+        sys.exit(1)
+
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from pathlib import Path
 from colorist import ColorHex
-
 aqua = ColorHex("#2fd6c7") #if you dont like aqua then cry about it. or just change the hex code idk
 red = ColorHex("#ff0000")
-
 #detect if os is windows with super complex quantum mechanics (importing modules)
 try:
     import msvcrt
@@ -74,6 +101,7 @@ class server:
         self.encryption_key = self.generate_key()
         self.cipher = Fernet(self.encryption_key)
         self.typing_status = {}
+        self.last_sender = None  # track who sent the last message
 
     def generate_key(self):
         password = b'change_this'
@@ -106,7 +134,12 @@ class server:
         timestamp = datetime.datetime.now().strftime('%I:%M:%S %p') #why is does the hour have to be %I?
 
         if msg_type == 'message':
-            formatted_msg = f'[{timestamp}] {sender_name}: {message}'
+            # if same person is still talking, just show the message without timestamp/username
+            if self.last_sender == sender_name and sender_name != 'System':
+                formatted_msg = f'    {message}'  # just indent the message
+            else:
+                formatted_msg = f'[{timestamp}] {sender_name}: {message}'
+                self.last_sender = sender_name
             self.log_message(formatted_msg)
         elif msg_type == 'typing':
             formatted_msg = f'typing:{sender_name}'
@@ -116,12 +149,12 @@ class server:
             formatted_msg = message
 
         for client_conn, client_info in list(self.clients.items()):
-            if client_conn != sender_conn:
-                try:
-                    encrypted = self.encrypt_message(formatted_msg)
-                    client_conn.send(encrypted.encode('utf-8'))
-                except:
-                    self.remove_client(client_conn)
+            # send to everyone including sender (so you see your own messages formatted)
+            try:
+                encrypted = self.encrypt_message(formatted_msg)
+                client_conn.send(encrypted.encode('utf-8'))
+            except:
+                self.remove_client(client_conn)
                 #i hope this thing actually works
     
     def handle_client(self, conn, addr):
@@ -152,17 +185,38 @@ class server:
                 #typing indicators
                 if decrypted == 'typing_start':
                     self.typing_status[username] = True
-                    self.broadcast('', sender_conn=conn, sender_name=username, msg_type='typing') #its 1:38am right now, love life
+                    # send typing to others only (not back to yourself)
+                    for client_conn, client_info in list(self.clients.items()):
+                        if client_conn != conn:
+                            try:
+                                encrypted = self.encrypt_message(f'typing:{username}')
+                                client_conn.send(encrypted.encode('utf-8'))
+                            except:
+                                pass
                     continue
                 elif decrypted == 'typing_stop':
                     self.typing_status[username] = False
-                    self.broadcast('', sender_conn=conn, sender_name=username, msg_type='stop_typing') #idk if this makes 
+                    # send stop typing to others only
+                    for client_conn, client_info in list(self.clients.items()):
+                        if client_conn != conn:
+                            try:
+                                encrypted = self.encrypt_message(f'stop_typing:{username}')
+                                client_conn.send(encrypted.encode('utf-8'))
+                            except:
+                                pass
                     continue
                 
-                #this is suppose to make it stop typing when a message is sent but idk if it works
+                #stop typing when message is sent
                 if username in self.typing_status:
                     self.typing_status[username] = False
-                    self.broadcast('', sender_conn=conn, sender_name=username, msg_type='stop_typing')
+                    # send stop typing to others
+                    for client_conn, client_info in list(self.clients.items()):
+                        if client_conn != conn:
+                            try:
+                                encrypted = self.encrypt_message(f'stop_typing:{username}')
+                                client_conn.send(encrypted.encode('utf-8'))
+                            except:
+                                pass
 
                 #and idk what this part does, i just hope it does something
                 if decrypted.startswith('/'):
@@ -243,18 +297,15 @@ Commands:
             s.bind((self.host, self.port))
             s.listen(config['max_clients'])
 
-            os.system('cls' if os.name == 'nt' else 'clear')
-            logo()
             print(f'\n{aqua}[+] Server listening on {self.host}:{self.port}{aqua.OFF}')
             print(f'{aqua}[*] Encryption: {"Enabled" if config["use_encryption"] else "Disabled"}{aqua.OFF}')
             print(f'{aqua}[*] Max clients: {config["max_clients"]}{aqua.OFF}')
-            print(f'{aqua}[*] Logs: {config["log_file"]}{aqua.OFF}\n')
+            print(f'{aqua}[*] Logs: {config["log_file"]}{aqua.OFF}')
+            print(f'{aqua}[*] Press Ctrl+C to stop server and return to menu{aqua.OFF}\n')
             
             if config['tunnel_enabled']:
-                print(f'{aqua}[*] Tunneling Instructions:{aqua.OFF}')
-                print(f'{aqua}    → LocalTunnel: lt --port {self.port}{aqua.OFF}')
-                print(f'{aqua}    → Serveo: ssh -R 80:localhost:{self.port} serveo.net{aqua.OFF}')
-                print(f'{aqua}    → Cloudflare: cloudflared tunnel --url localhost:{self.port}{aqua.OFF}\n')
+                print(f'{aqua}[*] Tunneling:{aqua.OFF}')
+                print(f'{aqua}    → bore local {self.port} --to bore.pub{aqua.OFF}\n')
             
             if config['tor_enabled']:
                 print(f'{aqua}[*] Tor Service: Install stem (pip install stem){aqua.OFF}\n')
@@ -273,6 +324,7 @@ Commands:
             except KeyboardInterrupt:
                 print(f'\n{red}[!] Server shutting down...{red.OFF}')
                 self.running = False
+                raise
 
 
 class client:
@@ -349,7 +401,7 @@ class client:
                     typing_indicator = self.show_typing_indicator()
                     if typing_indicator:
                         print(typing_indicator)
-                    print(f'{aqua}[{self.username}]: {aqua.OFF}{self.current_input}', end='', flush=True)
+                    # dont re-print username prompt, let user keep typing naturally
                     
             except Exception as e:
                 if self.running:
@@ -370,48 +422,71 @@ class client:
                 self.is_typing = False
     
     def start(self):
+        sock = None
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.connect((self.host, self.port))
-                
-                os.system('cls' if os.name == 'nt' else 'clear')
-                logo()
-                print(f'{aqua}[+] Connected to {self.host}:{self.port}{aqua.OFF}\n')
-                
-                username_prompt = sock.recv(config['buffersize']).decode('utf-8')
-                self.username = input('Enter username: ') #dont make the username too wild please
-                sock.send(self.encrypt_message(self.username).encode('utf-8'))
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(10)
+            print(f'{aqua}[*] Connecting to {self.host}:{self.port}...{aqua.OFF}')
+            sock.connect((self.host, self.port))
+            sock.settimeout(None)
+            
+            os.system('cls' if os.name == 'nt' else 'clear')
+            logo()
+            print(f'{aqua}[+] Connected to {self.host}:{self.port}{aqua.OFF}\n')
+            
+            username_prompt = sock.recv(config['buffersize']).decode('utf-8')
+            self.username = input('Enter username: ') #dont make the username too wild please
+            sock.send(self.encrypt_message(self.username).encode('utf-8'))
 
-                receive_thread = threading.Thread(target=self.receive_messages, args=(sock,))
-                receive_thread.daemon = True
-                receive_thread.start()
+            receive_thread = threading.Thread(target=self.receive_messages, args=(sock,))
+            receive_thread.daemon = True
+            receive_thread.start()
 
-                time.sleep(0.5)
-                print(f'\n{aqua}Type /help for commands{aqua.OFF}\n')
+            time.sleep(0.5)
+            print(f'\n{aqua}Type /help for commands{aqua.OFF}\n')
 
-                while self.running:
+            while self.running:
+                try:
                     message = input(f'{aqua}[{self.username}]: {aqua.OFF}')
                     self.current_input = ''
-
                     if not self.running:
                         break
-                    
                     if self.is_typing:
-                        sock.send(self.encrypt_message('typing_stop').encode('utf-8'))
+                        try:
+                            sock.send(self.encrypt_message('typing_stop').encode('utf-8'))
+                        except:
+                            pass
                         self.is_typing = False
-
                     if message.strip():
-                        encrypted = self.encrypt_message(message)
-                        sock.send(encrypted.encode('utf-8'))
-
-                        if message == '/quit':
+                        try:
+                            encrypted = self.encrypt_message(message)
+                            sock.send(encrypted.encode('utf-8'))
+                            if message == '/quit':
+                                self.running = False
+                                time.sleep(0.2)
+                                break
+                        except:
+                            print(f'\n{red}[-] Connection lost{red.OFF}')
                             self.running = False
                             break
-        
+                except KeyboardInterrupt:
+                    print(f'\n{aqua}[*] use /quit to disconnect properly{aqua.OFF}')
+                    continue
+                except EOFError:
+                    self.running = False
+                    break
         except ConnectionRefusedError:
-            print(f'{red}[-] Cannot connect to server. Is it running?{red.OFF}') #pro tip, running it allows you to connect to it
+            print(f'{red}[-] Cannot connect to server. Is it running?{red.OFF}')
         except Exception as e:
             print(f'{red}[-] Error: {e}{red.OFF}')
+        finally:
+            self.running = False
+            if sock:
+                try:
+                    sock.close()
+                except:
+                    pass
+            print(f'{aqua}[*] Disconnected{aqua.OFF}')
 
 def logo():
     print(rf'''{aqua}
@@ -457,129 +532,141 @@ def interactive_menu(options, title='CIPHER'):
             return -1
 
 def start_tunnel(tunnel_type, port):
-    """Start tunneling service based on selection"""
-    try:
-        if tunnel_type == 'localtunnel':
-            print(f'\n{aqua}[*] Starting LocalTunnel on port {port}...{aqua.OFF}')
-            print(f'{aqua}[*] Make sure you have LocalTunnel installed: npm install -g localtunnel{aqua.OFF}\n')
-            process = subprocess.Popen(['lt', '--port', str(port)], 
-                                     stdout=subprocess.PIPE, 
-                                     stderr=subprocess.PIPE,
-                                     text=True)
-            time.sleep(2)
-            print(f'{aqua}[*] LocalTunnel started! Check above for your URL{aqua.OFF}')
-            print(f'{aqua}[*] Share the URL with your friends (without https://){aqua.OFF}\n')
-            return process
-            
-        elif tunnel_type == 'serveo':
-            print(f'\n{aqua}[*] Starting Serveo tunnel on port {port}...{aqua.OFF}')
-            print(f'{aqua}[*] No installation needed!{aqua.OFF}\n')
-            process = subprocess.Popen(['ssh', '-R', f'80:localhost:{port}', 'serveo.net'],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE,
-                                     text=True)
-            time.sleep(2)
-            print(f'{aqua}[*] Serveo tunnel started! Check above for your URL{aqua.OFF}\n')
-            return process
-            
-        elif tunnel_type == 'cloudflare':
-            print(f'\n{aqua}[*] Starting Cloudflare Tunnel on port {port}...{aqua.OFF}')
-            print(f'{aqua}[*] Make sure cloudflared is installed{aqua.OFF}\n')
-            process = subprocess.Popen(['cloudflared', 'tunnel', '--url', f'tcp://localhost:{port}'],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE,
-                                     text=True)
-            time.sleep(2)
-            print(f'{aqua}[*] Cloudflare Tunnel started! Check above for your URL{aqua.OFF}\n')
-            return process
-            
-        elif tunnel_type == 'pinggy':
-            print(f'\n{aqua}[*] Starting Pinggy tunnel on port {port}...{aqua.OFF}')
-            print(f'{aqua}[*] No installation needed!{aqua.OFF}\n')
-            process = subprocess.Popen(['ssh', '-p', '443', '-R', f'0:localhost:{port}', 'a.pinggy.io'],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE,
-                                     text=True)
-            time.sleep(2)
-            print(f'{aqua}[*] Pinggy tunnel started! Check above for your URL{aqua.OFF}\n')
-            return process
-            
-        elif tunnel_type == 'ngrok':
-            print(f'\n{aqua}[*] Starting Ngrok on port {port}...{aqua.OFF}')
-            print(f'{aqua}[*] Make sure ngrok is installed and authenticated{aqua.OFF}\n')
-            process = subprocess.Popen(['ngrok', 'tcp', str(port)],
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE,
-                                     text=True)
-            time.sleep(2)
-            print(f'{aqua}[*] Ngrok started! Check ngrok dashboard for your URL{aqua.OFF}\n')
-            return process
-            
-    except FileNotFoundError:
-        print(f'{red}[-] Error: {tunnel_type} command not found. Please install it first.{red.OFF}')
-        return None
-    except Exception as e:
-        print(f'{red}[-] Error starting tunnel: {e}{red.OFF}')
-        return None
-
-
-def host_menu():
-    """Menu for hosting options with tunneling"""
-    while True:
-        options = [
-            'Host Locally (No Tunnel)',
-            'Host with LocalTunnel',
-            'Host with Serveo',
-            'Host with Cloudflare Tunnel',
-            'Back to Main Menu'
+    """start tunneling service based on selection"""
+    if tunnel_type == 'bore':
+        print(f'\n{aqua}starting bore tunnel...{aqua.OFF}')
+        
+        # find bore (might be in PATH or same folder)
+        bore_cmd = None
+        possible_locations = [
+            'bore',
+            'bore.exe',
+            os.path.join(os.path.dirname(__file__), 'bore'),
+            os.path.join(os.path.dirname(__file__), 'bore.exe'),
+            os.path.join(os.getcwd(), 'bore'),
+            os.path.join(os.getcwd(), 'bore.exe'),
         ]
         
-        choice = interactive_menu(options, 'HOST SERVER')
+        for location in possible_locations:
+            try:
+                test = subprocess.run([location, '--version'], 
+                                    capture_output=True, 
+                                    timeout=2)
+                if test.returncode == 0:
+                    bore_cmd = location
+                    break
+            except:
+                continue
         
-        if choice == -1 or choice == 4:
+        if not bore_cmd:
+            print(f'{red}cant find bore{red.OFF}')
+            print(f'{aqua}get it from: https://github.com/ekzhang/bore/releases{aqua.OFF}')
+            print(f'{aqua}put bore.exe in this folder or install with cargo{aqua.OFF}\n')
+            input('press enter...')
+            return None
+        
+        try:
+            # just let bore print its output naturally - dont capture it
+            print(f'{aqua}[*] connecting to bore.pub...{aqua.OFF}\n')
+            
+            process = subprocess.Popen(
+                [bore_cmd, 'local', str(port), '--to', 'bore.pub']
+            )
+            
+            # give it time to connect and show url
+            time.sleep(4)
+            
+            print(f'\n{aqua}──────────────────────────────{aqua.OFF}')
+            print(f'{aqua}[*] bore tunnel active{aqua.OFF}')
+            print(f'{aqua}[*] url shown above (bore.pub:port){aqua.OFF}')
+            print(f'{aqua}[*] share it with your friends{aqua.OFF}')
+            print(f'{aqua}──────────────────────────────{aqua.OFF}\n')
+            
+            return process
+            
+        except Exception as e:
+            print(f'{red}error starting bore: {e}{red.OFF}\n')
+            input('press enter...')
+            return None
+    
+    return None
+
+def host_menu():
+    """menu for hosting options with tunneling"""
+    while True:
+        options = [
+            'host locally (lan only)',
+            'host with bore',
+            'back to main menu'
+        ]
+        
+        choice = interactive_menu(options, 'host server')
+        
+        if choice == -1 or choice == 2:
             break
             
         elif choice == 0:
-            # Local hosting only
+            #local hosting only
+            os.system('cls' if os.name == 'nt' else 'clear')
+            logo()
+            print(f'\n{aqua}[*] starting local server...{aqua.OFF}')
+            print(f'{aqua}[*] friends on same wifi can connect{aqua.OFF}')
+            print(f'{aqua}[*] share port {config["port"]} with them{aqua.OFF}\n')
+            # try to show local ip (might not work but whatever)
+            try:
+                temp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                temp_sock.connect(('8.8.8.8', 80))
+                local_ip = temp_sock.getsockname()[0]
+                temp_sock.close()
+                print(f'{aqua}[+] your local ip: {local_ip}{aqua.OFF}')
+                print(f'{aqua}[+] tell them to connect to: {local_ip}:{config["port"]}{aqua.OFF}\n')
+            except:
+                print(f'{aqua}[*] couldnt get local ip automatically (rip){aqua.OFF}\n')
+            
             s = server()
-            s.start()
-            input('\nPress enter to return to menu')
+            try:
+                s.start()
+            except KeyboardInterrupt:
+                print(f'\n{red}[!] server stopped{red.OFF}')
+            input('\npress enter to return to menu')
             
         else:
-            # Hosting with tunnel
-            tunnel_types = ['', 'localtunnel', 'serveo', 'cloudflare']
+            #hosting with tunnel
+            tunnel_types = ['', 'bore']
             tunnel_type = tunnel_types[choice]
             
             os.system('cls' if os.name == 'nt' else 'clear')
             logo()
-            print(f'\n{aqua}Starting server with {tunnel_type.title()}...{aqua.OFF}\n')
+            print(f'\n{aqua}starting server with {tunnel_type}...{aqua.OFF}\n')
             
-            # Start tunnel in background
+            #start tunnel in background
             tunnel_process = start_tunnel(tunnel_type, config['port'])
             
             if tunnel_process:
-                print(f'{aqua}[*] Tunnel is running in the background{aqua.OFF}')
-                print(f'{aqua}[*] Starting Cipher server...{aqua.OFF}\n')
+                #dont clear screen, keep tunnel url visible
+                print(f'{aqua}[*] tunnel is running in the background{aqua.OFF}')
+                print(f'{aqua}[*] starting cipher server...{aqua.OFF}')
+                print(f'{aqua}[*] press ctrl+c to stop server{aqua.OFF}\n')
                 
-                # Start server
+                #start server
                 s = server()
                 try:
                     s.start()
                 except KeyboardInterrupt:
-                    print(f'\n{red}[!] Shutting down...{red.OFF}')
+                    print(f'\n{red}[!] shutting down...{red.OFF}')
                 finally:
-                    # Kill tunnel process
+                    #kill tunnel process
                     try:
                         tunnel_process.terminate()
                         tunnel_process.wait(timeout=5)
                     except:
                         tunnel_process.kill()
-                    print(f'{red}[!] Tunnel stopped{red.OFF}')
+                    print(f'{red}[!] tunnel stopped{red.OFF}')
                 
-                input('\nPress enter to return to menu')
+                input('\npress enter to return to menu')
             else:
-                print(f'{red}[-] Failed to start tunnel{red.OFF}')
-                input('\nPress enter to return to menu')
+                print(f'{red}[-] failed to start tunnel{red.OFF}')
+                input('\npress enter to return to menu')
 
 
 def settings_menu():
@@ -628,7 +715,7 @@ def main():
 
             choice = interactive_menu(menu_options)
 
-            if choice == -1 or choice == 3:
+            if choice == -1 or choice == 2:
                 os.system('cls' if os.name == 'nt' else 'clear')
                 logo()
                 print(f'\n{aqua}Thanks for using cipher{aqua.OFF}\n')
@@ -641,7 +728,41 @@ def main():
                 os.system('cls' if os.name == 'nt' else 'clear')
                 logo()
                 host = input(f'\n{aqua}Enter server ip/url (default: localhost): {aqua.OFF}').strip() or 'localhost'
-                port = input(f'{aqua}Enter port (default: 8052): {aqua.OFF}').strip() or '8052'
+                
+                #remove https:// or http:// if user includes it
+                if host.startswith('https://'):
+                    host = host.replace('https://', '')
+                    default_port = '443'
+                elif host.startswith('http://'):
+                    host = host.replace('http://', '')
+                    default_port = '80'
+                elif host.startswith('tcp://'):
+                    host = host.replace('tcp://', '')
+                    #extract port if included in tcp url
+                    if ':' in host:
+                        host, extracted_port = host.rsplit(':', 1)
+                        default_port = extracted_port
+                    else:
+                        default_port = '8052'
+                else:
+                    #if no protocol, check if it looks like a tunnel url
+                    if 'bore.pub' in host or 'serveo.net' in host or 'loca.lt' in host or 'trycloudflare.com' in host:
+                        #check if port is already in the url
+                        if ':' in host and not host.replace(':', '').replace('.', '').isalpha():
+                            parts = host.rsplit(':', 1)
+                            if parts[1].isdigit():
+                                host = parts[0]
+                                default_port = parts[1]
+                            else:
+                                default_port = '443'
+                        else:
+                            default_port = '443'
+                    else:
+                        default_port = '8052'
+                
+                port = input(f'{aqua}Enter port (default: {default_port}): {aqua.OFF}').strip() or default_port
+                
+                print(f'\n{aqua}[*] Connecting to {host}:{port}...{aqua.OFF}')
                 c = client(host, int(port))
                 c.start()
                 input('\nPress enter to return to menu')
