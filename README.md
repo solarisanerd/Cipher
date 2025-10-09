@@ -66,7 +66,6 @@ your message: "hello"
 1. install python﻿ (like 3.7​ оr whatever)
 2. run the program and itll auto install the packages (cryptography, colorist)
 ​ ​ ​ -​ оr​ іf﻿ youre cool just​ dо `pip install cryptography colorist`
-
 3.﻿ thats​ іt lol
 
 ## how​ tо use
