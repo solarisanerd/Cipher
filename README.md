@@ -1,10 +1,10 @@
 # CIPHER
 
-yeah so i made a chat thing cause why not. its called cipher and it lets you chat with people over the internet
+so i made a chat thing cause why not. its called cipher and it lets you chat with people over the internet
 
 ## what is this
 
-encrypted chat server/client thing i threw together. you can host a server and your friends can connect to it and chat. pretty simple really
+encrypted chat server/client thing i threw together. you can host a server and your friends can connect to it and chat
 
 features:
 - encryption (pbkdf2 + fernet, sounds fancy right?)
@@ -16,8 +16,6 @@ features:
 - interactive menus with arrow keys (looks cool)
 
 ## how it works
-
-ok so basically its like this:
 
 ```
    YOU (client)                    SERVER                    FRIEND (client)
@@ -107,7 +105,7 @@ when you host with bore itll give you a url like `bore.pub:12345` - send that to
                       INTERNET
                          |
                          |
-       ┌─────────────────┼─────────────────┐
+        ┌────────────────┼─────────────────┐
         |                |                 |
         v                v                 v
    [Client A]       [Server]          [Client B]
